@@ -88,10 +88,8 @@ describe('App Component', () => {
 
     const input = screen.getByPlaceholderText('Enter item name...');
     fireEvent.change(input, { target: { value: 'New Item' } });
-    fireEvent.click(screen.getByText('Add Item'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Item' }));
 
-    await waitFor(() => {
-      expect(screen.getByText('New Item')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('New Item')).toBeInTheDocument();
   });
 });
