@@ -43,10 +43,8 @@ describe('App Component', () => {
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Item Alpha')).toBeInTheDocument();
-      expect(screen.getByText('Item Beta')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Item Alpha')).toBeInTheDocument();
+    expect(await screen.findByText('Item Beta')).toBeInTheDocument();
   });
 
   it('shows error message when fetch fails', async () => {
@@ -86,7 +84,7 @@ describe('App Component', () => {
 
     render(<App />);
 
-    await waitFor(() => screen.getByText('Item Alpha'));
+    await screen.findByText('Item Alpha');
 
     const input = screen.getByPlaceholderText('Enter item name...');
     fireEvent.change(input, { target: { value: 'New Item' } });
