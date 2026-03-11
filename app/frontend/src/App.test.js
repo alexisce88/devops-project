@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import App from '../src/App';
+import App from './App';
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -17,7 +17,7 @@ describe('App Component', () => {
     });
 
     render(<App />);
-    expect(screen.getByText('DevOps Capstone App')).toBeInTheDocument();
+    expect(screen.getByText('DevOps Project')).toBeInTheDocument();
   });
 
   it('shows loading state initially', () => {
