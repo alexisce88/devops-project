@@ -1,0 +1,46 @@
+# Blue/Green deployment — both slots defined, only one active at a time.
+# Nginx (configured by Ansible) routes port 80 to the active slot.
+# Active slot is tracked in /opt/bluegreen_state on the server.
+#
+# Blue slot:  frontend on 3000, backend on 3001
+# Green slot: frontend on 3002, backend on 3003
+# DB: AWS RDS (shared by both slots, no postgres container here)
+
+services:
+  blue-backend:
+    image: ghcr.io/alexisce88/devops-backend:${BLUE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      DB_HOST: ${RDS_ENDPOINT}
+      DB_PORT: 5432
+      DB_NAME: appdb
+      DB_USER: appuser
+      DB_PASSWORD: ${DB_PASSWORD}
+      NODE_ENV: production
+
+  blue-frontend:
+    image: ghcr.io/alexisce88/devops-frontend:${BLUE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+
+  green-backend:
+    image: ghcr.io/alexisce88/devops-backend:${GREEN_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "3003:3001"
+    environment:
+      DB_HOST: ${RDS_ENDPOINT}
+      DB_PORT: 5432
+      DB_NAME: appdb
+      DB_USER: appuser
+      DB_PASSWORD: ${DB_PASSWORD}
+      NODE_ENV: production
+
+  green-frontend:
+    image: ghcr.io/alexisce88/devops-frontend:${GREEN_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
