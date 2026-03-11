@@ -1,0 +1,80 @@
+groups:
+  - name: application_alerts
+    interval: 30s
+    rules:
+      # -------------------------------------------------------
+      # AppDown — triggers self-healing rollback via Alertmanager
+      # -------------------------------------------------------
+      - alert: AppDown
+        expr: probe_success{job="blackbox_http"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: devops
+        annotations:
+          summary: "Application endpoint DOWN: {{ $labels.instance }}"
+          description: >
+            The HTTP probe for {{ $labels.instance }} has been failing for over 2 minutes.
+            This will trigger an automatic rollback via Jenkins.
+
+      # -------------------------------------------------------
+      # High CPU
+      # -------------------------------------------------------
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }}"
+
+      # -------------------------------------------------------
+      # High Memory
+      # -------------------------------------------------------
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }}"
+
+      # -------------------------------------------------------
+      # Low Disk Space
+      # -------------------------------------------------------
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Less than 15% disk space remaining on {{ $labels.instance }}"
+
+      # -------------------------------------------------------
+      # Instance Down (node exporter unreachable)
+      # -------------------------------------------------------
+      - alert: InstanceDown
+        expr: up{job="node_exporter"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "EC2 instance unreachable: {{ $labels.instance }}"
+          description: "Node exporter for {{ $labels.instance }} has been down for 3 minutes"
+
+  - name: jenkins_alerts
+    rules:
+      # -------------------------------------------------------
+      # High HTTP error rate on production (via blackbox)
+      # -------------------------------------------------------
+      - alert: ProductionHighErrorRate
+        expr: rate(probe_http_status_code{job="blackbox_http"}[5m]) > 0 and probe_http_status_code{job="blackbox_http"} >= 500
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx errors on production endpoint: {{ $labels.instance }}"
+          description: "Production endpoint {{ $labels.instance }} is returning 5xx errors"

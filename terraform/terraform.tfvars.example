@@ -1,0 +1,12 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored.
+
+aws_region         = "us-east-1"
+project_name       = "devops-capstone"
+ami_id             = "ami-0261755bbcb8c4a84"  # Ubuntu 22.04 us-east-1
+instance_type      = "t3.small"
+key_pair_name      = "devops-capstone"          # Name of your EC2 key pair
+my_ip              = "1.2.3.4/32"              # Your public IP for SSH access
+vpc_cidr           = "10.0.0.0/16"
+public_subnet_cidr = "10.0.1.0/24"
+availability_zone  = "us-east-1a"

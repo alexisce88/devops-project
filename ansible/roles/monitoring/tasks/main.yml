@@ -1,0 +1,53 @@
+---
+# monitoring/tasks/main.yml — Deploy Prometheus + Grafana + Alertmanager
+
+- name: Create monitoring directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+  loop:
+    - /opt/monitoring
+    - /opt/monitoring/prometheus
+    - /opt/monitoring/grafana
+    - /opt/monitoring/alertmanager
+
+- name: Deploy docker-compose for monitoring stack
+  template:
+    src: docker-compose-monitoring.yml.j2
+    dest: /opt/monitoring/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Deploy Prometheus configuration
+  template:
+    src: prometheus.yml.j2
+    dest: /opt/monitoring/prometheus/prometheus.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Deploy Prometheus alert rules
+  copy:
+    dest: /opt/monitoring/prometheus/alert_rules.yml
+    content: |
+      # Alert rules are managed via the monitoring/prometheus/alert_rules.yml file.
+      # This placeholder will be replaced when the file is synced.
+      groups: []
+
+
+- name: Deploy Alertmanager configuration
+  template:
+    src: alertmanager.yml.j2
+    dest: /opt/monitoring/alertmanager/alertmanager.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Start monitoring stack
+  community.docker.docker_compose_v2:
+    project_src: /opt/monitoring
+    state: present

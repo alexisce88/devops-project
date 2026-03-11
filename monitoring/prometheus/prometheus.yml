@@ -1,0 +1,56 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: production
+    project: devops-capstone
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  - "/etc/prometheus/alert_rules.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node exporter on all EC2 instances
+  - job_name: 'node_exporter'
+    static_configs:
+      - targets:
+          - 'JENKINS_IP:9100'
+          - 'STAGING_IP:9100'
+          - 'BLUE_IP:9100'
+          - 'GREEN_IP:9100'
+          - 'MONITORING_IP:9100'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):.+'
+        target_label: instance
+
+  # Blackbox exporter — HTTP probes for app health
+  - job_name: 'blackbox_http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - 'http://BLUE_IP:3001/health'
+          - 'http://GREEN_IP:3001/health'
+          - 'http://STAGING_IP:3001/health'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox_exporter:9115
+
+  - job_name: 'blackbox_exporter'
+    static_configs:
+      - targets: ['blackbox_exporter:9115']

@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: "{{ frontend_image }}"
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://{{ ansible_host }}:3001
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    image: "{{ backend_image }}"
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=appdb
+      - DB_USER=appuser
+      - DB_PASSWORD={{ db_password }}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=appdb
+      - POSTGRES_USER=appuser
+      - POSTGRES_PASSWORD={{ db_password }}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:

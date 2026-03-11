@@ -1,0 +1,122 @@
+// ============================================================
+// Pipeline 2: Staging — Build → Push GHCR → Deploy → Test
+// Triggers: Merge to main branch
+// ============================================================
+@Library('devops-shared-library') _
+
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    environment {
+        REGISTRY      = 'ghcr.io/alexisce88'
+        SHORT_SHA     = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+        BACKEND_IMAGE = "${REGISTRY}/devops-backend"
+        FRONTEND_IMAGE = "${REGISTRY}/devops-frontend"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.SHORT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    echo "Building commit: ${env.SHORT_SHA}"
+                }
+            }
+        }
+
+        stage('Build & Push: Backend') {
+            steps {
+                script {
+                    dockerBuildPush(
+                        context: 'app/backend',
+                        imageName: env.BACKEND_IMAGE,
+                        tag: env.SHORT_SHA
+                    )
+                }
+            }
+        }
+
+        stage('Build & Push: Frontend') {
+            steps {
+                withCredentials([string(credentialsId: 'staging-server-ip', variable: 'STAGING_IP')]) {
+                    script {
+                        dockerBuildPush(
+                            context: 'app/frontend',
+                            imageName: env.FRONTEND_IMAGE,
+                            tag: env.SHORT_SHA,
+                            buildArgs: [REACT_APP_API_URL: "http://${STAGING_IP}:3001"]
+                        )
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Staging') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'staging-server-ip', variable: 'STAGING_IP'),
+                    string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN'),
+                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')
+                ]) {
+                    sh """
+                        ansible-playbook ansible/playbooks/deploy_staging.yml \\
+                          --private-key=\${SSH_KEY} \\
+                          -i \${STAGING_IP}, \\
+                          -e "frontend_image=${FRONTEND_IMAGE}:${SHORT_SHA}" \\
+                          -e "backend_image=${BACKEND_IMAGE}:${SHORT_SHA}" \\
+                          -e "ghcr_username=alexisce88" \\
+                          -e "ghcr_token=\${GITHUB_TOKEN}" \\
+                          -e "db_password=\${STAGING_DB_PASSWORD:-stagingpass123}"
+                    """
+                }
+            }
+        }
+
+        stage('Integration Tests') {
+            steps {
+                withCredentials([string(credentialsId: 'staging-server-ip', variable: 'STAGING_IP')]) {
+                    script {
+                        // Health checks
+                        runHealthCheck(url: "http://${STAGING_IP}:3001/health", label: 'Backend /health')
+                        runHealthCheck(url: "http://${STAGING_IP}:3001/status", label: 'Backend /status')
+                        runHealthCheck(url: "http://${STAGING_IP}:3000", label: 'Frontend', retries: 6)
+
+                        // API integration test
+                        sh """
+                            # Test GET /items returns JSON array
+                            ITEMS=\$(curl -sf http://\${STAGING_IP}:3001/items)
+                            echo "Items response: \$ITEMS"
+
+                            # Test POST /items
+                            RESULT=\$(curl -sf -X POST http://\${STAGING_IP}:3001/items \\
+                              -H 'Content-Type: application/json' \\
+                              -d '{"name": "Integration Test Item"}')
+                            echo "POST /items: \$RESULT"
+
+                            echo "All integration tests passed!"
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Staging pipeline completed. Images tagged: ${BACKEND_IMAGE}:${SHORT_SHA}"
+        }
+        failure {
+            echo "Staging pipeline FAILED at build #${BUILD_NUMBER}"
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

@@ -1,0 +1,32 @@
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfvars
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+
+# Ansible
+ansible/inventory/hosts.ini
+ansible/*.retry
+
+# Node
+app/frontend/node_modules/
+app/backend/node_modules/
+app/frontend/build/
+app/backend/coverage/
+
+# Secrets
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

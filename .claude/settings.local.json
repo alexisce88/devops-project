@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wsl:*)",
+      "Bash(winget install:*)",
+      "Bash(curl:*)",
+      "Bash(powershell:*)"
+    ]
+  }
+}

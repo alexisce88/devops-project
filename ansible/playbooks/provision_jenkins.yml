@@ -1,0 +1,11 @@
+---
+# provision_jenkins.yml — Provision Jenkins server only
+# Usage: ansible-playbook playbooks/provision_jenkins.yml
+
+- name: Configure Jenkins server
+  hosts: jenkins
+  become: yes
+  roles:
+    - common
+    - jenkins
+    - nginx

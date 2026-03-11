@@ -1,0 +1,39 @@
+---
+# deploy_production.yml — Deploy app to a specific production slot (blue or green)
+# Called by Jenkins Production Pipeline
+# Required extra vars:
+#   - target_slot: blue or green
+#   - frontend_image, backend_image, ghcr_username, ghcr_token, db_password
+
+- name: Deploy application to production slot
+  hosts: "{{ target_slot }}"
+  become: yes
+  vars:
+    deploy_env: production
+  roles:
+    - app
+
+  post_tasks:
+    - name: Wait for backend health check on target slot
+      uri:
+        url: "http://{{ ansible_host }}:3001/health"
+        method: GET
+        status_code: 200
+      register: health_result
+      retries: 18
+      delay: 10
+      until: health_result.status == 200
+
+    - name: Wait for frontend on target slot
+      uri:
+        url: "http://{{ ansible_host }}:3000"
+        method: GET
+        status_code: 200
+      register: frontend_result
+      retries: 18
+      delay: 10
+      until: frontend_result.status == 200
+
+    - name: Print slot readiness
+      debug:
+        msg: "Slot '{{ target_slot }}' is ready at {{ ansible_host }}"

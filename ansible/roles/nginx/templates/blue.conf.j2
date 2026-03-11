@@ -1,0 +1,30 @@
+upstream blue_frontend {
+    server {{ blue_ip }}:3000;
+}
+
+upstream blue_backend {
+    server {{ blue_ip }}:3001;
+}
+
+server {
+    listen 80;
+    server_name {{ nginx_server_name | default('_') }};
+
+    location /api/ {
+        proxy_pass         http://blue_backend/;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /health {
+        proxy_pass         http://blue_backend/health;
+        proxy_set_header   Host $host;
+    }
+
+    location / {
+        proxy_pass         http://blue_frontend/;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+    }
+}
