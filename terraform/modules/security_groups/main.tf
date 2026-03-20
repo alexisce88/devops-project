@@ -3,13 +3,13 @@ resource "aws_security_group" "app" {
   description = "Security group for app servers (staging, blue, green)"
   vpc_id      = var.vpc_id
 
-  # SSH from your IP only
+  # SSH open to all — key-based auth enforced, required for GitHub Actions runners
   ingress {
     description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # HTTP from within VPC (internal traffic)
