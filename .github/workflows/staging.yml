@@ -72,6 +72,9 @@ jobs:
             # Login to GHCR so Docker can pull private images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            # Stop any containers holding the ports (handles manual deploys with different project names)
+            docker ps -q --filter "publish=3000" --filter "publish=3001" | xargs -r docker stop || true
+
             # Stop and remove old containers
             docker compose -f docker-compose.staging.yml down --remove-orphans
 
