@@ -1,0 +1,13 @@
+---
+# provision_staging.yml — Bootstrap staging server (run once before first deploy)
+# Usage: ansible-playbook playbooks/provision_staging.yml
+
+- name: Provision staging server
+  hosts: staging
+  become: yes
+  vars:
+    deploy_env: staging
+    nginx_config_template: staging.conf.j2
+  roles:
+    - common
+    - nginx

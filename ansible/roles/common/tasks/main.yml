@@ -1,9 +1,8 @@
 ---
-# common/tasks/main.yml — Install Docker + docker-compose on all hosts
+# common/tasks/main.yml — Baseline setup for every server
 
 # -------------------------------------------------------
-# Swap space — critical for t2.micro (only 1 GB RAM)
-# Creates a 2 GB swapfile so Jenkins and Docker don't OOM
+# Swap space — critical for t2.micro/t3.small instances
 # -------------------------------------------------------
 - name: Check if swap file already exists
   stat:
@@ -34,18 +33,16 @@
     line: '/swapfile none swap sw 0 0'
     state: present
 
-- name: Set vm.swappiness to 10 (use swap only when necessary)
+- name: Set vm.swappiness to 10
   sysctl:
     name: vm.swappiness
     value: '10'
     state: present
     reload: yes
 
-- name: Update apt cache
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600
-
+# -------------------------------------------------------
+# Docker
+# -------------------------------------------------------
 - name: Install prerequisites
   apt:
     name:
@@ -54,25 +51,17 @@
       - curl
       - gnupg
       - lsb-release
-      - python3-pip
     state: present
+    update_cache: yes
 
-- name: Add Docker GPG key (modern format)
+- name: Add Docker GPG key
   shell: |
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
       gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   args:
     creates: /usr/share/keyrings/docker-archive-keyring.gpg
 
-- name: Remove any old Docker repo entries without signed-by
-  file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list
-    - /etc/apt/sources.list.d/archive_uri-https_download_docker_com_linux_ubuntu-jammy.list
-
-- name: Add Docker repository (with signed-by)
+- name: Add Docker repository
   apt_repository:
     repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
     state: present
@@ -95,63 +84,59 @@
     groups: docker
     append: yes
 
-- name: Enable and start Docker service
+- name: Enable and start Docker
   systemd:
     name: docker
     enabled: yes
     state: started
 
-- name: Install docker-compose standalone (v2)
+# -------------------------------------------------------
+# Node Exporter — exposes host metrics to Prometheus
+# -------------------------------------------------------
+- name: Create node_exporter system user
+  user:
+    name: node_exporter
+    system: yes
+    shell: /bin/false
+    create_home: no
+
+- name: Download node_exporter
   get_url:
-    url: "https://github.com/docker/compose/releases/download/v2.24.1/docker-compose-linux-x86_64"
-    dest: /usr/local/bin/docker-compose
+    url: "https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz"
+    dest: /tmp/node_exporter.tar.gz
+
+- name: Extract node_exporter
+  unarchive:
+    src: /tmp/node_exporter.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+- name: Install node_exporter binary
+  copy:
+    src: /tmp/node_exporter-1.7.0.linux-amd64/node_exporter
+    dest: /usr/local/bin/node_exporter
     mode: '0755'
+    remote_src: yes
 
-- name: Install node exporter for Prometheus monitoring
-  block:
-    - name: Create node_exporter user
-      user:
-        name: node_exporter
-        system: yes
-        shell: /bin/false
+- name: Create node_exporter systemd service
+  copy:
+    dest: /etc/systemd/system/node_exporter.service
+    content: |
+      [Unit]
+      Description=Node Exporter
+      After=network.target
 
-    - name: Download node_exporter
-      get_url:
-        url: "https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz"
-        dest: /tmp/node_exporter.tar.gz
+      [Service]
+      User=node_exporter
+      ExecStart=/usr/local/bin/node_exporter
+      Restart=on-failure
 
-    - name: Extract node_exporter
-      unarchive:
-        src: /tmp/node_exporter.tar.gz
-        dest: /tmp/
-        remote_src: yes
+      [Install]
+      WantedBy=multi-user.target
 
-    - name: Install node_exporter binary
-      copy:
-        src: /tmp/node_exporter-1.7.0.linux-amd64/node_exporter
-        dest: /usr/local/bin/node_exporter
-        mode: '0755'
-        remote_src: yes
-
-    - name: Create node_exporter systemd service
-      copy:
-        dest: /etc/systemd/system/node_exporter.service
-        content: |
-          [Unit]
-          Description=Node Exporter
-          After=network.target
-
-          [Service]
-          User=node_exporter
-          ExecStart=/usr/local/bin/node_exporter
-          Restart=on-failure
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Enable and start node_exporter
-      systemd:
-        name: node_exporter
-        daemon_reload: yes
-        enabled: yes
-        state: started
+- name: Enable and start node_exporter
+  systemd:
+    name: node_exporter
+    daemon_reload: yes
+    enabled: yes
+    state: started

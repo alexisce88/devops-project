@@ -1,5 +1,5 @@
 ---
-# nginx/tasks/main.yml — Configure Blue/Green Nginx proxy on app servers
+# nginx/tasks/main.yml — Install Nginx and deploy config
 
 - name: Install Nginx
   apt:
@@ -7,37 +7,17 @@
     state: present
     update_cache: yes
 
-- name: Create Nginx conf.d directory
-  file:
-    path: /etc/nginx/conf.d
-    state: directory
-    mode: '0755'
-
-- name: Deploy blue slot Nginx config
-  template:
-    src: blue.conf.j2
-    dest: /etc/nginx/conf.d/blue.conf
-    mode: '0644'
-  notify: reload nginx
-
-- name: Deploy green slot Nginx config
-  template:
-    src: green.conf.j2
-    dest: /etc/nginx/conf.d/green.conf
-    mode: '0644'
-  notify: reload nginx
-
-- name: Deploy staging Nginx config
-  template:
-    src: staging.conf.j2
-    dest: /etc/nginx/conf.d/staging.conf
-    mode: '0644'
-  notify: reload nginx
-
 - name: Remove default Nginx site
   file:
     path: /etc/nginx/sites-enabled/default
     state: absent
+  notify: reload nginx
+
+- name: Deploy Nginx config
+  template:
+    src: "{{ nginx_config_template }}"
+    dest: /etc/nginx/conf.d/app.conf
+    mode: '0644'
   notify: reload nginx
 
 - name: Enable and start Nginx

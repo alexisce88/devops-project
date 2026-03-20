@@ -1,6 +1,6 @@
 ---
-# deploy_staging.yml — Deploy app to staging environment
-# Called by Jenkins Staging Pipeline
+# deploy_staging.yml — Deploy app to staging
+# Called by GitHub Actions staging workflow
 # Required extra vars: frontend_image, backend_image, ghcr_username, ghcr_token, db_password
 
 - name: Deploy application to staging
@@ -8,11 +8,12 @@
   become: yes
   vars:
     deploy_env: staging
+
   roles:
     - app
 
   post_tasks:
-    - name: Wait for backend health check
+    - name: Wait for backend to be healthy
       uri:
         url: "http://{{ ansible_host }}:3001/health"
         method: GET
@@ -32,6 +33,6 @@
       delay: 10
       until: frontend_result.status == 200
 
-    - name: Print deployment success
+    - name: Deployment summary
       debug:
-        msg: "Staging deployment successful. Backend: {{ ansible_host }}:3001, Frontend: {{ ansible_host }}:3000"
+        msg: "Staging deploy successful — frontend: {{ ansible_host }}:3000, backend: {{ ansible_host }}:3001"

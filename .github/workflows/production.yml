@@ -1,0 +1,115 @@
+name: Deploy to Production (Blue/Green)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (default: latest)'
+        required: false
+        default: 'latest'
+
+jobs:
+  deploy:
+    name: Blue/Green deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose to production server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PRODUCTION_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: app/docker-compose.production.yml
+          target: /opt/app
+          strip_components: 1
+
+      - name: Deploy to idle slot + switch Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            IMAGE_TAG=${{ github.event.inputs.image_tag }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            RDS_ENDPOINT=${{ secrets.RDS_ENDPOINT }}
+
+            # Login to GHCR
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Read current active slot (blue or green)
+            ACTIVE=$(cat /opt/bluegreen_state 2>/dev/null || echo "blue")
+            if [ "$ACTIVE" = "blue" ]; then
+              IDLE="green"
+              IDLE_FRONTEND_PORT=3002
+              IDLE_BACKEND_PORT=3003
+              ACTIVE_FRONTEND_PORT=3000
+              ACTIVE_BACKEND_PORT=3001
+            else
+              IDLE="blue"
+              IDLE_FRONTEND_PORT=3000
+              IDLE_BACKEND_PORT=3001
+              ACTIVE_FRONTEND_PORT=3002
+              ACTIVE_BACKEND_PORT=3003
+            fi
+
+            echo "Active slot: $ACTIVE | Deploying to: $IDLE"
+
+            # Pull new images
+            IMAGE_TAG=$IMAGE_TAG \
+            DB_PASSWORD=$DB_PASSWORD \
+            RDS_ENDPOINT=$RDS_ENDPOINT \
+            docker compose -f /opt/app/docker-compose.production.yml pull ${IDLE}-frontend ${IDLE}-backend
+
+            # Start idle slot with new images
+            IMAGE_TAG=$IMAGE_TAG \
+            DB_PASSWORD=$DB_PASSWORD \
+            RDS_ENDPOINT=$RDS_ENDPOINT \
+            docker compose -f /opt/app/docker-compose.production.yml up -d ${IDLE}-frontend ${IDLE}-backend
+
+            # Smoke test idle slot directly (bypass Nginx)
+            echo "Smoke testing $IDLE slot on port $IDLE_BACKEND_PORT..."
+            for i in $(seq 1 10); do
+              if curl -sf http://localhost:${IDLE_BACKEND_PORT}/health > /dev/null; then
+                echo "$IDLE slot is healthy"
+                break
+              fi
+              if [ $i -eq 10 ]; then
+                echo "Smoke test failed — aborting deploy"
+                docker compose -f /opt/app/docker-compose.production.yml stop ${IDLE}-frontend ${IDLE}-backend
+                exit 1
+              fi
+              echo "Waiting... ($i/10)"
+              sleep 3
+            done
+
+            # Switch Nginx to idle slot
+            echo "Switching Nginx to $IDLE slot..."
+            sudo cp /etc/nginx/conf.d/${IDLE}.conf /etc/nginx/conf.d/active.conf
+            sudo nginx -t && sudo nginx -s reload
+            echo "Nginx now pointing to $IDLE"
+
+            # Monitor for 5 minutes — rollback if health check fails
+            echo "Monitoring for 5 minutes..."
+            DEADLINE=$(($(date +%s) + 300))
+            while [ $(date +%s) -lt $DEADLINE ]; do
+              if ! curl -sf http://localhost/health > /dev/null; then
+                echo "Health check failed — rolling back to $ACTIVE"
+                sudo cp /etc/nginx/conf.d/${ACTIVE}.conf /etc/nginx/conf.d/active.conf
+                sudo nginx -t && sudo nginx -s reload
+                exit 1
+              fi
+              sleep 15
+            done
+
+            # All good — update state file
+            echo "$IDLE" | sudo tee /opt/bluegreen_state
+            echo "Deploy complete. Active slot is now: $IDLE"
+
+            # Stop old slot to free RAM
+            docker compose -f /opt/app/docker-compose.production.yml stop ${ACTIVE}-frontend ${ACTIVE}-backend

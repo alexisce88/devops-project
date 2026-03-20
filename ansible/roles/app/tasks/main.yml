@@ -23,12 +23,9 @@
     username: "{{ ghcr_username }}"
     password: "{{ ghcr_token }}"
 
-- name: Pull latest images
+- name: Pull and start containers
   community.docker.docker_compose_v2:
     project_src: /opt/app
+    project_name: "{{ target_slot | default('staging') }}"
     pull: always
     state: present
-  environment:
-    FRONTEND_IMAGE: "{{ frontend_image }}"
-    BACKEND_IMAGE: "{{ backend_image }}"
-    DB_PASSWORD: "{{ db_password }}"

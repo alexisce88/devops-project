@@ -23,11 +23,9 @@ scrape_configs:
   - job_name: 'node_exporter'
     static_configs:
       - targets:
-          - 'JENKINS_IP:9100'
-          - 'STAGING_IP:9100'
-          - 'BLUE_IP:9100'
-          - 'GREEN_IP:9100'
           - 'MONITORING_IP:9100'
+          - 'STAGING_IP:9100'
+          - 'PRODUCTION_IP:9100'
     relabel_configs:
       - source_labels: [__address__]
         regex: '([^:]+):.+'
@@ -40,8 +38,8 @@ scrape_configs:
       module: [http_2xx]
     static_configs:
       - targets:
-          - 'http://BLUE_IP:3001/health'
-          - 'http://GREEN_IP:3001/health'
+          - 'http://PRODUCTION_IP:3001/health'
+          - 'http://PRODUCTION_IP:3003/health'
           - 'http://STAGING_IP:3001/health'
     relabel_configs:
       - source_labels: [__address__]

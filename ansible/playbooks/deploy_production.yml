@@ -1,22 +1,30 @@
 ---
-# deploy_production.yml — Deploy app to a specific production slot (blue or green)
-# Called by Jenkins Production Pipeline
-# Required extra vars:
-#   - target_slot: blue or green
-#   - frontend_image, backend_image, ghcr_username, ghcr_token, db_password
+# deploy_production.yml — Deploy app to a blue or green slot
+# Called by GitHub Actions production workflow
+# Required extra vars: target_slot, frontend_image, backend_image, ghcr_username, ghcr_token, db_password
 
 - name: Deploy application to production slot
-  hosts: "{{ target_slot }}"
+  hosts: production
   become: yes
   vars:
     deploy_env: production
+    slot_ports:
+      blue:
+        frontend: 3000
+        backend: 3001
+      green:
+        frontend: 3002
+        backend: 3003
+    frontend_port: "{{ slot_ports[target_slot].frontend }}"
+    backend_port: "{{ slot_ports[target_slot].backend }}"
+
   roles:
     - app
 
   post_tasks:
-    - name: Wait for backend health check on target slot
+    - name: Wait for backend to be healthy
       uri:
-        url: "http://{{ ansible_host }}:3001/health"
+        url: "http://{{ ansible_host }}:{{ backend_port }}/health"
         method: GET
         status_code: 200
       register: health_result
@@ -24,9 +32,9 @@
       delay: 10
       until: health_result.status == 200
 
-    - name: Wait for frontend on target slot
+    - name: Wait for frontend to be ready
       uri:
-        url: "http://{{ ansible_host }}:3000"
+        url: "http://{{ ansible_host }}:{{ frontend_port }}"
         method: GET
         status_code: 200
       register: frontend_result
@@ -34,6 +42,6 @@
       delay: 10
       until: frontend_result.status == 200
 
-    - name: Print slot readiness
+    - name: Deployment summary
       debug:
         msg: "Slot '{{ target_slot }}' is ready at {{ ansible_host }}"

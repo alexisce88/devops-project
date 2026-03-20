@@ -3,7 +3,7 @@ variable "project_name" {
 }
 
 variable "role" {
-  description = "Server role: jenkins, staging, blue, green, monitoring"
+  description = "Server role: staging, production, monitoring"
   type        = string
 }
 

@@ -1,0 +1,98 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-and-push:
+    name: Build + push Docker images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: app/backend
+          push: true
+          tags: |
+            ghcr.io/alexisce88/devops-backend:${{ github.sha }}
+            ghcr.io/alexisce88/devops-backend:latest
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: app/frontend
+          push: true
+          tags: |
+            ghcr.io/alexisce88/devops-frontend:${{ github.sha }}
+            ghcr.io/alexisce88/devops-frontend:latest
+
+  deploy:
+    name: Deploy to staging server
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose to staging server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.STAGING_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: app/docker-compose.staging.yml
+          target: /opt/app
+          strip_components: 1
+
+      - name: Deploy on staging server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/app
+
+            # Login to GHCR so Docker can pull private images
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull latest images and restart containers
+            IMAGE_TAG=${{ github.sha }} \
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            docker compose -f docker-compose.staging.yml pull
+
+            IMAGE_TAG=${{ github.sha }} \
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            docker compose -f docker-compose.staging.yml up -d
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Wait up to 30s for backend to be ready
+            for i in $(seq 1 10); do
+              if curl -sf http://localhost:3001/health > /dev/null; then
+                echo "Backend healthy"
+                exit 0
+              fi
+              echo "Waiting... ($i/10)"
+              sleep 3
+            done
+            echo "Health check failed"
+            exit 1

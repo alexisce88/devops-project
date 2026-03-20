@@ -1,5 +1,5 @@
 # Architecture:
-# - Jenkins: managed manually (permanent, not in Terraform)
+# - Monitoring: managed manually (permanent, not in Terraform)
 # - Staging:    1 EC2 — Nginx + app containers + Postgres Docker
 # - Production: 1 EC2 — Nginx + Blue containers (3000/3001) + Green containers (3002/3003)
 # - RDS:        AWS managed PostgreSQL — shared by Blue and Green in production
