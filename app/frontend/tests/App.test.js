@@ -17,7 +17,7 @@ describe('App Component', () => {
     });
 
     render(<App />);
-    expect(screen.getByText('DevOps Capstone App')).toBeInTheDocument();
+    expect(screen.getByText('DevOps Project')).toBeInTheDocument();
   });
 
   it('shows loading state initially', () => {
