@@ -1,4 +1,5 @@
 # Terraform
+terraform/aws/dist/
 terraform/.terraform/
 terraform/terraform.tfvars
 terraform/*.tfstate
