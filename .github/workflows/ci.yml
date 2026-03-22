@@ -58,6 +58,7 @@ jobs:
       - name: Test
         working-directory: app/frontend
         run: npm test
+
   notify-failure:
     name: Notify PR on failure
     runs-on: ubuntu-latest
@@ -70,3 +71,6 @@ jobs:
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ CI failed — lint or tests are broken. Please fix before merging.'
+            })
