@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import './App.css';
-import sys from 'systemjs';
 
 
 const API_URL = '/api';
 
 function App() {
-  const [items, setItems] = useState([])
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [newItemName, setNewItemName] = useState('');
