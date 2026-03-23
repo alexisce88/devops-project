@@ -26,6 +26,7 @@ services:
       DB_USER: appuser
       DB_PASSWORD: ${DB_PASSWORD:-changeme}
       NODE_ENV: staging
+      IMAGE_TAG: ${IMAGE_TAG:-dev}
     depends_on:
       postgres:
         condition: service_healthy
