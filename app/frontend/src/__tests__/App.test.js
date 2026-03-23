@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import App from '../src/App';
+import App from '../App';
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -17,7 +17,7 @@ describe('App Component', () => {
     });
 
     render(<App />);
-    expect(screen.getByText('DevOps Capstone App')).toBeInTheDocument();
+    expect(screen.getByText('DevOps Project')).toBeInTheDocument();
   });
 
   it('shows loading state initially', () => {
@@ -43,10 +43,8 @@ describe('App Component', () => {
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Item Alpha')).toBeInTheDocument();
-      expect(screen.getByText('Item Beta')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Item Alpha')).toBeInTheDocument();
+    expect(await screen.findByText('Item Beta')).toBeInTheDocument();
   });
 
   it('shows error message when fetch fails', async () => {
@@ -86,11 +84,11 @@ describe('App Component', () => {
 
     render(<App />);
 
-    await waitFor(() => screen.getByText('Item Alpha'));
+    await screen.findByText('Item Alpha');
 
     const input = screen.getByPlaceholderText('Enter item name...');
     fireEvent.change(input, { target: { value: 'New Item' } });
-    fireEvent.click(screen.getByText('Add Item'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Item' }));
 
     await waitFor(() => {
       expect(screen.getByText('New Item')).toBeInTheDocument();
