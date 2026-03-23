@@ -1,0 +1,13 @@
+---
+# provision_production.yml — Bootstrap production server (run once before first deploy)
+# Usage: ansible-playbook playbooks/provision_production.yml
+
+- name: Provision production server
+  hosts: production
+  become: yes
+  vars:
+    deploy_env: production
+    nginx_config_template: production.conf.j2
+  roles:
+    - common
+    - nginx
