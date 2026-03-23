@@ -9,6 +9,7 @@ function App() {
   const [error, setError] = useState(null);
   const [newItemName, setNewItemName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [version, setVersion] = useState(null);
 
   const fetchItems = async () => {
     try {
@@ -26,6 +27,10 @@ function App() {
 
   useEffect(() => {
     fetchItems();
+    fetch(`${API_URL}/health`)
+      .then((res) => res.json())
+      .then((data) => setVersion(data.version))
+      .catch(() => {});
   }, []);
 
   const handleAddItem = async (e) => {
@@ -89,6 +94,7 @@ function App() {
           )}
         </section>
       </main>
+      {version && <footer style={{ textAlign: 'center', padding: '1rem', opacity: 0.5, fontSize: '0.8rem' }}>version: {version}</footer>}
     </div>
   );
 }

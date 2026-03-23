@@ -47,7 +47,7 @@ async function initDb() {
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
-    version: process.env.npm_package_version || '1.0.0',
+    version: process.env.IMAGE_TAG || 'dev',
     env: process.env.NODE_ENV || 'development',
   });
 });
