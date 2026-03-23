@@ -102,3 +102,26 @@ jobs:
             done
             echo "Health check failed"
             exit 1
+
+  promote-to-production:
+    name: Promote to Production
+    runs-on: ubuntu-latest
+    needs: deploy
+    environment: PROD
+    permissions:
+      actions: write
+
+    steps:
+      - name: Trigger production pipeline
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'production.yml',
+              ref: 'master',
+              inputs: {
+                image_tag: '${{ github.sha }}'
+              }
+            })
