@@ -5,26 +5,26 @@ import App from '../App';
 // Mock fetch globally
 global.fetch = jest.fn();
 
+const healthMock = { ok: true, json: async () => ({ version: 'test' }) };
+
 beforeEach(() => {
   fetch.mockClear();
 });
 
 describe('App Component', () => {
   it('renders header with app title', async () => {
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    });
+    fetch
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce(healthMock);
 
     render(<App />);
     expect(screen.getByText('DevOps Project')).toBeInTheDocument();
   });
 
   it('shows loading state initially', () => {
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    });
+    fetch
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce(healthMock);
 
     render(<App />);
     expect(screen.getByText('Loading...')).toBeInTheDocument();
@@ -36,10 +36,9 @@ describe('App Component', () => {
       { id: 2, name: 'Item Beta' },
     ];
 
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockItems,
-    });
+    fetch
+      .mockResolvedValueOnce({ ok: true, json: async () => mockItems })
+      .mockResolvedValueOnce(healthMock);
 
     render(<App />);
 
@@ -48,7 +47,9 @@ describe('App Component', () => {
   });
 
   it('shows error message when fetch fails', async () => {
-    fetch.mockRejectedValueOnce(new Error('Network error'));
+    fetch
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce(healthMock);
 
     render(<App />);
 
@@ -58,10 +59,9 @@ describe('App Component', () => {
   });
 
   it('shows empty state when no items', async () => {
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    });
+    fetch
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce(healthMock);
 
     render(<App />);
 
@@ -79,6 +79,7 @@ describe('App Component', () => {
 
     fetch
       .mockResolvedValueOnce({ ok: true, json: async () => initialItems })
+      .mockResolvedValueOnce(healthMock)
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
       .mockResolvedValueOnce({ ok: true, json: async () => updatedItems });
 
