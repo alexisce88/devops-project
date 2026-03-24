@@ -8,6 +8,7 @@
   vars:
     deploy_env: production
     nginx_config_template: production.conf.j2
+    target_slot: blue
   roles:
     - common
     - nginx
