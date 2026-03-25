@@ -8,10 +8,13 @@ TFVARS="$(dirname "$0")/terraform.tfvars"
 echo "Reading Terraform outputs..."
 STAGING_IP=$(terraform output -raw staging_public_ip)
 PRODUCTION_IP=$(terraform output -raw production_public_ip)
+RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
 
 echo "Updating GitHub secrets for $REPO..."
 gh secret set STAGING_IP --body "$STAGING_IP" -R "$REPO"
 gh secret set PRODUCTION_IP --body "$PRODUCTION_IP" -R "$REPO"
+gh secret set RDS_ENDPOINT --body "$RDS_ENDPOINT" -R "$REPO"
+echo "  RDS_ENDPOINT  -> $RDS_ENDPOINT"
 
 if [ -f "$KEY_PATH" ]; then
   gh secret set SSH_PRIVATE_KEY < "$KEY_PATH" -R "$REPO"
