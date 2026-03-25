@@ -60,14 +60,18 @@ jobs:
 
             echo "Active slot: $ACTIVE | Deploying to: $IDLE"
 
+            # Set slot-specific image tag variable
+            BLUE_TAG=$( [ "$IDLE" = "blue" ] && echo "$IMAGE_TAG" || echo "latest" )
+            GREEN_TAG=$( [ "$IDLE" = "green" ] && echo "$IMAGE_TAG" || echo "latest" )
+
             # Pull new images
-            ${IDLE^^}_TAG=$IMAGE_TAG \
+            BLUE_TAG=$BLUE_TAG GREEN_TAG=$GREEN_TAG \
             DB_PASSWORD=$DB_PASSWORD \
             RDS_ENDPOINT=$RDS_ENDPOINT \
             docker compose -f /opt/app/docker-compose.production.yml pull ${IDLE}-frontend ${IDLE}-backend
 
             # Start idle slot with new images
-            ${IDLE^^}_TAG=$IMAGE_TAG \
+            BLUE_TAG=$BLUE_TAG GREEN_TAG=$GREEN_TAG \
             DB_PASSWORD=$DB_PASSWORD \
             RDS_ENDPOINT=$RDS_ENDPOINT \
             docker compose -f /opt/app/docker-compose.production.yml up -d ${IDLE}-frontend ${IDLE}-backend
