@@ -90,7 +90,7 @@ jobs:
 
             # Switch Nginx to idle slot
             echo "Switching Nginx to $IDLE slot..."
-            sudo cp /etc/nginx/conf.d/${IDLE}.conf /etc/nginx/conf.d/active.conf
+            sudo cp /etc/nginx/slots/${IDLE}.conf /etc/nginx/conf.d/active.conf
             sudo nginx -t && sudo nginx -s reload
             echo "Nginx now pointing to $IDLE"
 
@@ -100,7 +100,7 @@ jobs:
             while [ $(date +%s) -lt $DEADLINE ]; do
               if ! curl -sf http://localhost/health > /dev/null; then
                 echo "Health check failed — rolling back to $ACTIVE"
-                sudo cp /etc/nginx/conf.d/${ACTIVE}.conf /etc/nginx/conf.d/active.conf
+                sudo cp /etc/nginx/slots/${ACTIVE}.conf /etc/nginx/conf.d/active.conf
                 sudo nginx -t && sudo nginx -s reload
                 exit 1
               fi
