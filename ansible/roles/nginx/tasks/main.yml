@@ -13,11 +13,53 @@
     state: absent
   notify: reload nginx
 
-- name: Deploy Nginx config
+- name: Deploy Nginx config (staging)
   template:
     src: "{{ nginx_config_template }}"
     dest: /etc/nginx/conf.d/app.conf
     mode: '0644'
+  notify: reload nginx
+  when: deploy_env != 'production'
+
+- name: Create nginx slots directory (production)
+  file:
+    path: /etc/nginx/slots
+    state: directory
+    mode: '0755'
+  when: deploy_env == 'production'
+
+- name: Deploy blue Nginx config (production)
+  template:
+    src: production.conf.j2
+    dest: /etc/nginx/slots/blue.conf
+    mode: '0644'
+  vars:
+    target_slot: blue
+  when: deploy_env == 'production'
+
+- name: Deploy green Nginx config (production)
+  template:
+    src: production.conf.j2
+    dest: /etc/nginx/slots/green.conf
+    mode: '0644'
+  vars:
+    target_slot: green
+  when: deploy_env == 'production'
+
+- name: Set initial active config to blue (production)
+  copy:
+    src: /etc/nginx/slots/blue.conf
+    dest: /etc/nginx/conf.d/active.conf
+    remote_src: yes
+    mode: '0644'
+  notify: reload nginx
+  when: deploy_env == 'production'
+
+- name: Remove app.conf on production if it exists
+  file:
+    path: /etc/nginx/conf.d/app.conf
+    state: absent
+  when: deploy_env == 'production'
   notify: reload nginx
 
 - name: Enable and start Nginx
