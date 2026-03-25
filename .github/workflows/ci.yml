@@ -59,6 +59,7 @@ jobs:
         working-directory: app/frontend
         run: npm test
 
+
   notify-failure:
     name: Notify PR on failure
     runs-on: ubuntu-latest
