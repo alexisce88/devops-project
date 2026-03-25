@@ -70,6 +70,12 @@ jobs:
             RDS_ENDPOINT=$RDS_ENDPOINT \
             docker compose -f /opt/app/docker-compose.production.yml pull ${IDLE}-frontend ${IDLE}-backend
 
+            # Ensure active slot is running (in case of fresh server)
+            BLUE_TAG=$BLUE_TAG GREEN_TAG=$GREEN_TAG \
+            DB_PASSWORD=$DB_PASSWORD \
+            RDS_ENDPOINT=$RDS_ENDPOINT \
+            docker compose -f /opt/app/docker-compose.production.yml up -d ${ACTIVE}-frontend ${ACTIVE}-backend
+
             # Start idle slot with new images
             BLUE_TAG=$BLUE_TAG GREEN_TAG=$GREEN_TAG \
             DB_PASSWORD=$DB_PASSWORD \
