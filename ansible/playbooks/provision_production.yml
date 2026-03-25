@@ -12,3 +12,12 @@
   roles:
     - common
     - nginx
+
+  tasks:
+    - name: Create app directory
+      file:
+        path: /opt/app
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
