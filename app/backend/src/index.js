@@ -15,6 +15,9 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'appdb',
   user: process.env.DB_USER || 'appuser',
   password: process.env.DB_PASSWORD || 'changeme',
+  ssl: process.env.DB_HOST && process.env.DB_HOST !== 'localhost'
+    ? { rejectUnauthorized: false }
+    : false,
 });
 
 // Initialize DB table on startup
