@@ -110,6 +110,3 @@ jobs:
             # All good — update state file
             echo "$IDLE" | sudo tee /opt/bluegreen_state
             echo "Deploy complete. Active slot is now: $IDLE"
-
-            # Stop old slot to free RAM
-            docker compose -f /opt/app/docker-compose.production.yml stop ${ACTIVE}-frontend ${ACTIVE}-backend
