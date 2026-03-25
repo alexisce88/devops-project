@@ -61,13 +61,13 @@ jobs:
             echo "Active slot: $ACTIVE | Deploying to: $IDLE"
 
             # Pull new images
-            IMAGE_TAG=$IMAGE_TAG \
+            ${IDLE^^}_TAG=$IMAGE_TAG \
             DB_PASSWORD=$DB_PASSWORD \
             RDS_ENDPOINT=$RDS_ENDPOINT \
             docker compose -f /opt/app/docker-compose.production.yml pull ${IDLE}-frontend ${IDLE}-backend
 
             # Start idle slot with new images
-            IMAGE_TAG=$IMAGE_TAG \
+            ${IDLE^^}_TAG=$IMAGE_TAG \
             DB_PASSWORD=$DB_PASSWORD \
             RDS_ENDPOINT=$RDS_ENDPOINT \
             docker compose -f /opt/app/docker-compose.production.yml up -d ${IDLE}-frontend ${IDLE}-backend
