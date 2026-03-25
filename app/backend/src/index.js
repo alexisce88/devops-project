@@ -52,6 +52,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     version: process.env.IMAGE_TAG || 'dev',
     env: process.env.NODE_ENV || 'development',
+    slot: process.env.SLOT || 'unknown',
   });
 });
 

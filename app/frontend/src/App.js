@@ -11,6 +11,7 @@ function App() {
   const [newItemName, setNewItemName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [version, setVersion] = useState(null);
+  const [slot, setSlot] = useState(null);
 
   const fetchItems = async () => {
     try {
@@ -30,7 +31,7 @@ function App() {
     fetchItems();
     fetch(`${API_URL}/health`)
       .then((res) => res.json())
-      .then((data) => setVersion(data.version))
+      .then((data) => { setVersion(data.version); setSlot(data.slot); })
       .catch(() => {});
   }, []);
 
@@ -95,7 +96,7 @@ function App() {
           )}
         </section>
       </main>
-      {version && <footer style={{ textAlign: 'center', padding: '1rem', opacity: 0.5, fontSize: '0.8rem' }}>version: {version}</footer>}
+      {version && <footer style={{ textAlign: 'center', padding: '1rem', opacity: 0.5, fontSize: '0.8rem' }}>version: {version} | slot: {slot}</footer>}
     </div>
   );
 }

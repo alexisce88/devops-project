@@ -19,6 +19,8 @@ services:
       DB_USER: appuser
       DB_PASSWORD: ${DB_PASSWORD}
       NODE_ENV: production
+      SLOT: blue
+      IMAGE_TAG: ${BLUE_TAG:-latest}
 
   blue-frontend:
     image: ghcr.io/alexisce88/devops-frontend:${BLUE_TAG:-latest}
@@ -38,6 +40,8 @@ services:
       DB_USER: appuser
       DB_PASSWORD: ${DB_PASSWORD}
       NODE_ENV: production
+      SLOT: green
+      IMAGE_TAG: ${GREEN_TAG:-latest}
 
   green-frontend:
     image: ghcr.io/alexisce88/devops-frontend:${GREEN_TAG:-latest}
