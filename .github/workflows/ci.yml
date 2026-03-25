@@ -58,7 +58,26 @@ jobs:
       - name: Test
         working-directory: app/frontend
         run: npm test
-
+        
+  auto-merge:
+    name: Auto-merge PR if CI passes
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    if: ${{ github.event_name == 'pull_request' && success() }}
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - name: Enable auto-merge for PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.pulls.enableAutoMerge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              merge_method: 'squash'
+            })
 
   notify-failure:
     name: Notify PR on failure
