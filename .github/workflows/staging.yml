@@ -76,12 +76,12 @@ jobs:
             docker compose -f docker-compose.staging.yml down --remove-orphans
 
             # Pull latest images and restart containers
-            IMAGE_TAG=${{ github.sha }} \
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            IMAGE_TAG="${{ github.sha }}" \
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
             docker compose -f docker-compose.staging.yml pull
 
-            IMAGE_TAG=${{ github.sha }} \
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            IMAGE_TAG="${{ github.sha }}" \
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
             docker compose -f docker-compose.staging.yml up -d
 
       - name: Health check

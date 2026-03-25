@@ -35,9 +35,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            IMAGE_TAG=${{ github.event.inputs.image_tag }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            RDS_ENDPOINT=${{ secrets.RDS_ENDPOINT }}
+            IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+            RDS_ENDPOINT="${{ secrets.RDS_ENDPOINT }}"
 
             # Login to GHCR
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
