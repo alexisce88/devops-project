@@ -9,10 +9,9 @@ on:
         default: 'latest'
 
 jobs:
-  deploy:
-    name: Blue/Green deploy
+  copy-compose:
+    name: Copy docker-compose to server
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,40 +26,57 @@ jobs:
           target: /opt/app
           strip_components: 1
 
-      - name: Determine active/idle slots and login to GHCR
+  prepare:
+    name: Determine slots + login to GHCR
+    runs-on: ubuntu-latest
+    outputs:
+      active: ${{ steps.slots.outputs.active }}
+      idle: ${{ steps.slots.outputs.idle }}
+      idle_backend_port: ${{ steps.slots.outputs.idle_backend_port }}
+      blue_tag: ${{ steps.slots.outputs.blue_tag }}
+      green_tag: ${{ steps.slots.outputs.green_tag }}
+    steps:
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+      - name: Resolve slot state
+        id: slots
+        run: |
+          ACTIVE=$(ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key ubuntu@${{ secrets.PRODUCTION_IP }} "cat /opt/bluegreen_state 2>/dev/null || echo blue")
+          if [ "$ACTIVE" = "blue" ]; then
+            IDLE="green"
+            IDLE_BACKEND_PORT=3003
+          else
+            IDLE="blue"
+            IDLE_BACKEND_PORT=3001
+          fi
+          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          BLUE_TAG=$( [ "$IDLE" = "blue" ] && echo "$IMAGE_TAG" || echo "latest" )
+          GREEN_TAG=$( [ "$IDLE" = "green" ] && echo "$IMAGE_TAG" || echo "latest" )
+          echo "active=$ACTIVE" >> $GITHUB_OUTPUT
+          echo "idle=$IDLE" >> $GITHUB_OUTPUT
+          echo "idle_backend_port=$IDLE_BACKEND_PORT" >> $GITHUB_OUTPUT
+          echo "blue_tag=$BLUE_TAG" >> $GITHUB_OUTPUT
+          echo "green_tag=$GREEN_TAG" >> $GITHUB_OUTPUT
+          echo "Active: $ACTIVE | Deploying to: $IDLE"
+
+      - name: Login to GHCR on production server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PRODUCTION_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            set -e
-            ACTIVE=$(cat /opt/bluegreen_state 2>/dev/null || echo "blue")
-            if [ "$ACTIVE" = "blue" ]; then
-              IDLE="green"
-              IDLE_BACKEND_PORT=3003
-            else
-              IDLE="blue"
-              IDLE_BACKEND_PORT=3001
-            fi
-
-            BLUE_TAG=$( [ "$IDLE" = "blue" ] && echo "${{ github.event.inputs.image_tag }}" || echo "latest" )
-            GREEN_TAG=$( [ "$IDLE" = "green" ] && echo "${{ github.event.inputs.image_tag }}" || echo "latest" )
-
-            cat > /tmp/bluegreen_env <<EOF
-            export ACTIVE=$ACTIVE
-            export IDLE=$IDLE
-            export IDLE_BACKEND_PORT=$IDLE_BACKEND_PORT
-            export BLUE_TAG=$BLUE_TAG
-            export GREEN_TAG=$GREEN_TAG
-            export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
-            export RDS_ENDPOINT="${{ secrets.RDS_ENDPOINT }}"
-            EOF
-
-            echo "Active slot: $ACTIVE | Deploying to: $IDLE"
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Pull new images to idle slot
+  pull-images:
+    name: Pull new images to idle slot
+    runs-on: ubuntu-latest
+    needs: [copy-compose, prepare]
+    steps:
+      - name: Pull images
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PRODUCTION_IP }}
@@ -68,12 +84,19 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            source /tmp/bluegreen_env
+            IDLE="${{ needs.prepare.outputs.idle }}"
+            BLUE_TAG="${{ needs.prepare.outputs.blue_tag }}"
+            GREEN_TAG="${{ needs.prepare.outputs.green_tag }}"
             BLUE_TAG=$BLUE_TAG GREEN_TAG=$GREEN_TAG \
-            DB_PASSWORD=$DB_PASSWORD \
-            RDS_ENDPOINT=$RDS_ENDPOINT \
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            RDS_ENDPOINT="${{ secrets.RDS_ENDPOINT }}" \
             docker compose -f /opt/app/docker-compose.production.yml pull ${IDLE}-frontend ${IDLE}-backend
 
+  start-slots:
+    name: Start active + idle slots
+    runs-on: ubuntu-latest
+    needs: [prepare, pull-images]
+    steps:
       - name: Ensure active slot is running
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -82,10 +105,12 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            source /tmp/bluegreen_env
+            ACTIVE="${{ needs.prepare.outputs.active }}"
+            BLUE_TAG="${{ needs.prepare.outputs.blue_tag }}"
+            GREEN_TAG="${{ needs.prepare.outputs.green_tag }}"
             BLUE_TAG=$BLUE_TAG GREEN_TAG=$GREEN_TAG \
-            DB_PASSWORD=$DB_PASSWORD \
-            RDS_ENDPOINT=$RDS_ENDPOINT \
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            RDS_ENDPOINT="${{ secrets.RDS_ENDPOINT }}" \
             docker compose -f /opt/app/docker-compose.production.yml up -d ${ACTIVE}-frontend ${ACTIVE}-backend
 
       - name: Start idle slot with new images
@@ -96,13 +121,20 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            source /tmp/bluegreen_env
+            IDLE="${{ needs.prepare.outputs.idle }}"
+            BLUE_TAG="${{ needs.prepare.outputs.blue_tag }}"
+            GREEN_TAG="${{ needs.prepare.outputs.green_tag }}"
             BLUE_TAG=$BLUE_TAG GREEN_TAG=$GREEN_TAG \
-            DB_PASSWORD=$DB_PASSWORD \
-            RDS_ENDPOINT=$RDS_ENDPOINT \
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            RDS_ENDPOINT="${{ secrets.RDS_ENDPOINT }}" \
             docker compose -f /opt/app/docker-compose.production.yml up -d ${IDLE}-frontend ${IDLE}-backend
 
-      - name: Smoke test idle slot
+  smoke-test:
+    name: Smoke test idle slot
+    runs-on: ubuntu-latest
+    needs: [prepare, start-slots]
+    steps:
+      - name: Test idle slot health
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PRODUCTION_IP }}
@@ -110,7 +142,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            source /tmp/bluegreen_env
+            IDLE="${{ needs.prepare.outputs.idle }}"
+            IDLE_BACKEND_PORT="${{ needs.prepare.outputs.idle_backend_port }}"
             echo "Smoke testing $IDLE slot on port $IDLE_BACKEND_PORT..."
             for i in $(seq 1 10); do
               if curl -sf http://localhost:${IDLE_BACKEND_PORT}/health > /dev/null; then
@@ -119,9 +152,10 @@ jobs:
               fi
               if [ $i -eq 10 ]; then
                 echo "Smoke test failed — aborting deploy"
-                BLUE_TAG=$BLUE_TAG GREEN_TAG=$GREEN_TAG \
-                DB_PASSWORD=$DB_PASSWORD \
-                RDS_ENDPOINT=$RDS_ENDPOINT \
+                BLUE_TAG="${{ needs.prepare.outputs.blue_tag }}" \
+                GREEN_TAG="${{ needs.prepare.outputs.green_tag }}" \
+                DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+                RDS_ENDPOINT="${{ secrets.RDS_ENDPOINT }}" \
                 docker compose -f /opt/app/docker-compose.production.yml stop ${IDLE}-frontend ${IDLE}-backend
                 exit 1
               fi
@@ -129,7 +163,12 @@ jobs:
               sleep 3
             done
 
-      - name: Switch Nginx to idle slot
+  switch-nginx:
+    name: Switch Nginx to idle slot
+    runs-on: ubuntu-latest
+    needs: [prepare, smoke-test]
+    steps:
+      - name: Update Nginx active config
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PRODUCTION_IP }}
@@ -137,12 +176,17 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            source /tmp/bluegreen_env
+            IDLE="${{ needs.prepare.outputs.idle }}"
             sudo cp /etc/nginx/slots/${IDLE}.conf /etc/nginx/conf.d/active.conf
             sudo nginx -t && sudo nginx -s reload
             echo "Nginx now pointing to $IDLE"
 
-      - name: Monitor for 5 minutes (rollback on failure)
+  monitor:
+    name: Monitor + rollback or confirm
+    runs-on: ubuntu-latest
+    needs: [prepare, switch-nginx]
+    steps:
+      - name: Monitor for 5 minutes
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PRODUCTION_IP }}
@@ -150,7 +194,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            source /tmp/bluegreen_env
+            ACTIVE="${{ needs.prepare.outputs.active }}"
+            IDLE="${{ needs.prepare.outputs.idle }}"
             echo "Monitoring for 5 minutes..."
             DEADLINE=$(($(date +%s) + 300))
             while [ $(date +%s) -lt $DEADLINE ]; do
