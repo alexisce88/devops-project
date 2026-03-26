@@ -59,6 +59,33 @@ jobs:
         working-directory: app/frontend
         run: npm test
 
+  auto-merge:
+    name: Auto-merge to master
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    if: success()
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Merge PR and trigger staging
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              merge_method: 'merge'
+            })
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'staging.yml',
+              ref: 'master'
+            })
+
   notify-failure:
     name: Notify PR on failure
     runs-on: ubuntu-latest
