@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
-    name: Build + push Docker images
+  build-backend:
+    name: Build + push backend image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -33,6 +33,24 @@ jobs:
             ghcr.io/alexisce88/devops-backend:${{ github.sha }}
             ghcr.io/alexisce88/devops-backend:latest
 
+  build-frontend:
+    name: Build + push frontend image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push frontend
         uses: docker/build-push-action@v5
         with:
@@ -45,7 +63,7 @@ jobs:
   deploy:
     name: Deploy to staging server
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: [build-backend, build-frontend]
 
     steps:
       - name: Checkout code
@@ -61,38 +79,59 @@ jobs:
           target: /opt/app
           strip_components: 1
 
-      - name: Deploy on staging server
+      - name: Login to GHCR on staging server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.STAGING_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /opt/app
-
-            # Login to GHCR so Docker can pull private images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Stop and remove old containers
-            docker compose -f docker-compose.staging.yml down --remove-orphans
-
-            # Pull latest images and restart containers
-            IMAGE_TAG="${{ github.sha }}" \
-            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            docker compose -f docker-compose.staging.yml pull
-
-            IMAGE_TAG="${{ github.sha }}" \
-            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            docker compose -f docker-compose.staging.yml up -d
-
-      - name: Health check
+      - name: Stop old containers
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.STAGING_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Wait up to 30s for backend to be ready
+            docker compose -f /opt/app/docker-compose.staging.yml down --remove-orphans
+
+      - name: Pull new images
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            IMAGE_TAG="${{ github.sha }}" \
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            docker compose -f /opt/app/docker-compose.staging.yml pull
+
+      - name: Start containers
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            IMAGE_TAG="${{ github.sha }}" \
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            docker compose -f /opt/app/docker-compose.staging.yml up -d
+
+  health-check:
+    name: Health check
+    runs-on: ubuntu-latest
+    needs: deploy
+
+    steps:
+      - name: Wait for backend to be ready
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
             for i in $(seq 1 10); do
               if curl -sf http://localhost:3001/health > /dev/null; then
                 echo "Backend healthy"
@@ -107,7 +146,7 @@ jobs:
   promote-to-production:
     name: Promote to Production
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: health-check
     environment: PROD
     permissions:
       actions: write
