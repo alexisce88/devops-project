@@ -1,0 +1,13 @@
+---
+# provision_monitoring.yml — Bootstrap monitoring server (run once after terraform apply)
+# Usage: ansible-playbook playbooks/provision_monitoring.yml
+
+- name: Provision monitoring server
+  hosts: monitoring
+  become: yes
+  vars:
+    grafana_password: "{{ lookup('env', 'GRAFANA_PASSWORD') | default('admin123', true) }}"
+  roles:
+    - common
+    - monitoring
+wh

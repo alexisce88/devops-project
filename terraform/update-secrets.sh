@@ -6,11 +6,13 @@ KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/devops-capstone.pem}"
 TFVARS="$(dirname "$0")/terraform.tfvars"
 
 echo "Reading Terraform outputs..."
+MONITORING_IP=$(terraform output -raw monitoring_public_ip)
 STAGING_IP=$(terraform output -raw staging_public_ip)
 PRODUCTION_IP=$(terraform output -raw production_public_ip)
 RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
 
 echo "Updating GitHub secrets for $REPO..."
+gh secret set MONITORING_IP --body "$MONITORING_IP" -R "$REPO"
 gh secret set STAGING_IP --body "$STAGING_IP" -R "$REPO"
 gh secret set PRODUCTION_IP --body "$PRODUCTION_IP" -R "$REPO"
 gh secret set RDS_ENDPOINT --body "$RDS_ENDPOINT" -R "$REPO"
@@ -37,5 +39,6 @@ else
 fi
 
 echo "Done."
+echo "  MONITORING_IP -> $MONITORING_IP"
 echo "  STAGING_IP    -> $STAGING_IP"
 echo "  PRODUCTION_IP -> $PRODUCTION_IP"

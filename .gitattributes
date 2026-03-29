@@ -8,4 +8,4 @@
 *.j2 text eol=lf
 Makefile text eol=lf
 Dockerfile text eol=lf
-Jenkinsfile text eol=lf
+
