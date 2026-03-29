@@ -1,7 +1,3 @@
-# NOTE: This file is overwritten on deploy by Ansible using
-# ansible/roles/monitoring/templates/prometheus.yml.j2
-# Edit the .j2 template, not this file.
-
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -27,9 +23,9 @@ scrape_configs:
   - job_name: 'node_exporter'
     static_configs:
       - targets:
-          - 'MONITORING_IP:9100'
-          - 'STAGING_IP:9100'
-          - 'PRODUCTION_IP:9100'
+          - '{{ monitoring_private_ip }}:9100'
+          - '{{ staging_private_ip }}:9100'
+          - '{{ production_private_ip }}:9100'
     relabel_configs:
       - source_labels: [__address__]
         regex: '([^:]+):.+'
@@ -42,9 +38,9 @@ scrape_configs:
       module: [http_2xx]
     static_configs:
       - targets:
-          - 'http://PRODUCTION_IP:3001/health'
-          - 'http://PRODUCTION_IP:3003/health'
-          - 'http://STAGING_IP:3001/health'
+          - 'http://{{ production_private_ip }}:3001/health'
+          - 'http://{{ production_private_ip }}:3003/health'
+          - 'http://{{ staging_private_ip }}:3001/health'
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

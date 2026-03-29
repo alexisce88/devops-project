@@ -1,0 +1,37 @@
+---
+- name: Create monitoring directory
+  file:
+    path: /opt/monitoring
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+- name: Copy monitoring stack files
+  copy:
+    src: "{{ playbook_dir }}/../../monitoring/"
+    dest: /opt/monitoring/
+    owner: ubuntu
+    group: ubuntu
+    mode: preserve
+
+- name: Template prometheus.yml with real IPs
+  template:
+    src: prometheus.yml.j2
+    dest: /opt/monitoring/prometheus/prometheus.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Ensure alert_rules.yml exists as a file (not a directory)
+  file:
+    path: /opt/monitoring/prometheus/alert_rules.yml
+    state: file
+
+- name: Start monitoring stack
+  community.docker.docker_compose_v2:
+    project_src: /opt/monitoring
+    state: present
+    pull: always
+  environment:
+    GRAFANA_PASSWORD: "{{ grafana_password | default('admin123') }}"

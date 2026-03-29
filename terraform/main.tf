@@ -40,6 +40,20 @@ module "staging" {
   volume_size        = 20
 }
 
+# Monitoring: Prometheus + Grafana + Alertmanager + Blackbox Exporter
+module "monitoring" {
+  source = "./modules/ec2"
+
+  project_name       = var.project_name
+  role               = "monitoring"
+  ami_id             = var.ami_id
+  instance_type      = var.instance_type
+  subnet_id          = module.networking.public_subnet_id
+  security_group_ids = [module.security_groups.monitoring_sg_id]
+  key_pair_name      = var.key_pair_name
+  volume_size        = 20
+}
+
 # Production: Nginx + Blue slot (3000/3001) + Green slot (3002/3003) — connects to RDS
 module "production" {
   source = "./modules/ec2"

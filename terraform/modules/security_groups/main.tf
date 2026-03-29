@@ -11,7 +11,13 @@ resource "aws_security_group" "app" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
+  ingress {
+    description = "AllowVPC"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
   # HTTP from within VPC (internal traffic)
   ingress {
     description = "HTTP"
@@ -44,6 +50,15 @@ resource "aws_security_group" "app" {
     description = "Frontend"
     from_port   = 3000
     to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  # Node exporter — scraped by Prometheus on monitoring server
+  ingress {
+    description = "Node Exporter"
+    from_port   = 9100
+    to_port     = 9100
     protocol    = "tcp"
     cidr_blocks = [var.vpc_cidr]
   }
@@ -118,6 +133,13 @@ resource "aws_security_group" "monitoring" {
     cidr_blocks = [var.my_ip]
   }
 
+  ingress {
+    description = "AllowVPC"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
   # Alertmanager
   ingress {
     description = "Alertmanager"

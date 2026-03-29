@@ -5,15 +5,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="$SCRIPT_DIR/../../terraform"
 INVENTORY_FILE="$SCRIPT_DIR/../inventory/hosts.ini"
 
-# Monitoring server IP: not managed by Terraform, set manually
-# Usage: MONITORING_IP=1.2.3.4 bash update_inventory.sh
-MONITORING_IP="${MONITORING_IP:-REPLACE_WITH_MONITORING_IP}"
-
 echo "Reading Terraform outputs from: ${TERRAFORM_DIR}"
 cd "$TERRAFORM_DIR"
 
+MONITORING_IP=$(terraform output -raw monitoring_public_ip)
+MONITORING_PRIVATE_IP=$(terraform output -raw monitoring_private_ip)
 STAGING_IP=$(terraform output -raw staging_public_ip)
+STAGING_PRIVATE_IP=$(terraform output -raw staging_private_ip)
 PRODUCTION_IP=$(terraform output -raw production_public_ip)
+PRODUCTION_PRIVATE_IP=$(terraform output -raw production_private_ip)
 RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
 
 mkdir -p "$(dirname "$INVENTORY_FILE")"
@@ -43,6 +43,12 @@ app_servers
 
 [all_servers:vars]
 rds_endpoint=${RDS_ENDPOINT}
+monitoring_ip=${MONITORING_IP}
+monitoring_private_ip=${MONITORING_PRIVATE_IP}
+staging_ip=${STAGING_IP}
+staging_private_ip=${STAGING_PRIVATE_IP}
+production_ip=${PRODUCTION_IP}
+production_private_ip=${PRODUCTION_PRIVATE_IP}
 EOF
 
 echo "Done. Inventory written to ${INVENTORY_FILE}"
