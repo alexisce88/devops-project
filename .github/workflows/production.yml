@@ -9,6 +9,33 @@ on:
         default: 'latest'
 
 jobs:
+  snapshot-rds:
+    name: Snapshot RDS before deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create RDS snapshot
+        run: |
+          SNAPSHOT_ID="devops-capstone-pre-deploy-${{ github.run_id }}"
+          echo "Creating RDS snapshot: $SNAPSHOT_ID"
+          aws rds create-db-snapshot \
+            --db-instance-identifier devops-capstone-postgres \
+            --db-snapshot-identifier "$SNAPSHOT_ID"
+
+      - name: Wait for snapshot to complete
+        run: |
+          SNAPSHOT_ID="devops-capstone-pre-deploy-${{ github.run_id }}"
+          echo "Waiting for snapshot to be available (can take 5-10 min)..."
+          aws rds wait db-snapshot-completed \
+            --db-snapshot-identifier "$SNAPSHOT_ID"
+          echo "Snapshot ready: $SNAPSHOT_ID"
+
   copy-compose:
     name: Copy docker-compose to server
     runs-on: ubuntu-latest
@@ -74,7 +101,7 @@ jobs:
   pull-images:
     name: Pull new images to idle slot
     runs-on: ubuntu-latest
-    needs: [copy-compose, prepare]
+    needs: [copy-compose, prepare, snapshot-rds]
     steps:
       - name: Pull images
         uses: appleboy/ssh-action@v1.0.3

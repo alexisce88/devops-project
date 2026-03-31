@@ -1,3 +1,8 @@
+output "aws_region" {
+  description = "AWS region where resources are deployed"
+  value       = var.aws_region
+}
+
 output "monitoring_public_ip" {
   description = "Public IP of Monitoring server (Prometheus + Grafana + Alertmanager)"
   value       = module.monitoring.public_ip

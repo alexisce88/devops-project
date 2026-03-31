@@ -11,7 +11,10 @@ STAGING_IP=$(terraform output -raw staging_public_ip)
 PRODUCTION_IP=$(terraform output -raw production_public_ip)
 RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
 
+AWS_REGION=$(terraform output -raw aws_region 2>/dev/null || grep 'aws_region' "$TFVARS" | sed 's/.*=\s*"\(.*\)"/\1/')
+
 echo "Updating GitHub secrets for $REPO..."
+gh secret set AWS_REGION --body "$AWS_REGION" -R "$REPO"
 gh secret set MONITORING_IP --body "$MONITORING_IP" -R "$REPO"
 gh secret set STAGING_IP --body "$STAGING_IP" -R "$REPO"
 gh secret set PRODUCTION_IP --body "$PRODUCTION_IP" -R "$REPO"
