@@ -37,15 +37,3 @@ jobs:
 
           aws s3 cp "$FILENAME" "s3://terraform-s3-tfstate-devops/db-backups/$FILENAME"
           echo "Backup uploaded: db-backups/$FILENAME"
-
-      - name: Delete backups older than 30 days
-        run: |
-          CUTOFF=$(date -d '30 days ago' +%Y%m%d)
-          aws s3 ls s3://terraform-s3-tfstate-devops/db-backups/ | while read -r line; do
-            FILEDATE=$(echo "$line" | awk '{print $4}' | grep -oP '\d{8}')
-            FILENAME=$(echo "$line" | awk '{print $4}')
-            if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF" ]; then
-              aws s3 rm "s3://terraform-s3-tfstate-devops/db-backups/$FILENAME"
-              echo "Deleted old backup: $FILENAME"
-            fi
-          done
