@@ -143,10 +143,26 @@ jobs:
             echo "Health check failed"
             exit 1
 
+  integration-test:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    needs: health-check
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run integration tests against staging
+        env:
+          BASE_URL: http://${{ secrets.STAGING_IP }}
+        run: |
+          chmod +x scripts/integration-tests.sh
+          bash scripts/integration-tests.sh
+
   promote-to-production:
     name: Promote to Production
     runs-on: ubuntu-latest
-    needs: health-check
+    needs: integration-test
     environment: PROD
     permissions:
       actions: write
