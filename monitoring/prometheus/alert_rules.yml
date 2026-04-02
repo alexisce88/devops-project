@@ -7,7 +7,7 @@ groups:
       # -------------------------------------------------------
       - alert: AppDown
         expr: probe_success{job="blackbox_http"} == 0
-        for: 2m
+        for: 10s
         labels:
           severity: critical
           team: devops
@@ -22,7 +22,7 @@ groups:
       # -------------------------------------------------------
       - alert: HighCPUUsage
         expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
-        for: 5m
+        for: 1m
         labels:
           severity: warning
         annotations:
@@ -34,7 +34,7 @@ groups:
       # -------------------------------------------------------
       - alert: HighMemoryUsage
         expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
-        for: 5m
+        for: 1m
         labels:
           severity: warning
         annotations:
@@ -58,7 +58,7 @@ groups:
       # -------------------------------------------------------
       - alert: InstanceDown
         expr: up{job="node_exporter"} == 0
-        for: 3m
+        for: 10s
         labels:
           severity: critical
         annotations:
