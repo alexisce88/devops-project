@@ -3,7 +3,7 @@ global:
   smtp_smarthost: 'smtp.resend.com:465'
   smtp_from: 'grafana@zenezia.ro'
   smtp_auth_username: 'resend'
-  smtp_auth_password: 're_LaPmab1f_MGdqWDG78Vr8Lp9wzo9Qi4Rf'
+  smtp_auth_password: 'RESEND_API_KEY_PLACEHOLDER'
   smtp_require_tls: false
 
 templates: []
