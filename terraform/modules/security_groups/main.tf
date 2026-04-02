@@ -48,11 +48,20 @@ resource "aws_security_group" "app" {
   # Frontend app port
   ingress {
     description = "Frontend"
+    from_port   = 3003
+    to_port     = 3003
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  ingress {
+    description = "Frontend"
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
     cidr_blocks = [var.vpc_cidr]
   }
+
 
   # Node exporter — scraped by Prometheus on monitoring server
   ingress {
