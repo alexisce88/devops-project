@@ -33,3 +33,4 @@ Thumbs.db
 *.swp
 .claude/
 .claude/settings.local.json
+docs/
